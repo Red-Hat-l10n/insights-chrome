@@ -1,38 +1,23 @@
 import React, { useState } from 'react';
-import {
-  Button,
-  Checkbox,
-  Form,
-  FormGroup,
-  Panel,
-  PanelMain,
-  PanelMainBody,
-  Text,
-  TextArea,
-  TextContent,
-  TextVariants,
-} from '@patternfly/react-core';
+import { Button, Checkbox, Form, FormGroup, Panel, PanelMain, PanelMainBody, Text, TextContent, TextVariants } from '@patternfly/react-core';
 import { DeepRequired } from 'utility-types';
 import { ChromeUser } from '@redhat-cloud-services/types';
-import { useIntl } from 'react-intl';
-
-import messages from '../../Messages';
-import { getEnv, getUrl, isProd } from '../../utils';
-
 import './Feedback.scss';
+import PropTypes from 'prop-types';
+import { getEnv, getUrl, isProd } from '../../utils';
+import { useIntl } from 'react-intl';
+import messages from '../../Messages';
 
-export type FeedbackProps = {
+export type InformDirectionProps = {
   user: DeepRequired<ChromeUser>;
   onCloseModal: () => void;
   onSubmit: () => void;
   onClickBack: () => void;
-  handleFeedbackError: () => void;
 };
 
-const Feedback = ({ user, onCloseModal, onSubmit, onClickBack, handleFeedbackError }: FeedbackProps) => {
-  const intl = useIntl();
-  const [textAreaValue, setTextAreaValue] = useState('');
+const InformDirection = ({ user, onCloseModal, onSubmit, onClickBack }: InformDirectionProps) => {
   const [checked, setChecked] = useState(false);
+  const intl = useIntl();
   const env = getEnv();
   const app = getUrl('app');
   const bundle = getUrl('bundle');
@@ -42,56 +27,42 @@ const Feedback = ({ user, onCloseModal, onSubmit, onClickBack, handleFeedbackErr
   async function handleModalSubmission() {
     const token = await window.insights.chrome.auth.getToken();
     if (isAvailable) {
-      try {
-        const response = await fetch(`${window.origin}/api/platform-feedback/v1/issues`, {
-          method: 'POST',
-          headers: {
-            Accept: 'application/json',
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            description: `Feedback: ${textAreaValue}, Username: ${user.identity.user.username}, Account ID: ${user.identity.account_number}, Email: ${
-              checked ? user.identity.user.email : ''
-            }, URL: ${window.location.href}`, //eslint-disable-line
-            summary: `${addFeedbackTag()} App Feedback`,
-            labels: [app, bundle],
-          }),
-        });
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        const result = response.json();
-        onSubmit();
-      } catch (err) {
-        console.error(err);
-        handleFeedbackError();
-      }
+      fetch(`${window.origin}/api/platform-feedback/v1/issues`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          description: `[Research Opportunities] Username: ${user.identity.user.username}, Account ID: ${user.identity.account_number}, 
+          Email: ${checked ? user.identity.user.email : ''}, URL: ${window.location.href}`,
+          summary: `${addFeedbackTag()} App Feedback`,
+          labels: [app, bundle],
+        }),
+      }).then((response) => response.json());
     } else {
       console.log('Submitting feedback only works in prod and stage');
     }
+
+    onSubmit();
+    onCloseModal();
   }
 
   return (
     <div className="chr-c-feedback-content">
       <TextContent>
-        <Text component={TextVariants.h1}>{intl.formatMessage(messages.shareYourFeedback)}</Text>
+        <Text component={TextVariants.h1}>{intl.formatMessage(messages.informRedhatDirection)}</Text>
+        <Text>{intl.formatMessage(messages.informDirectionDescription)}</Text>
       </TextContent>
       <Form>
-        <FormGroup label={intl.formatMessage(messages.enterFeedback)} fieldId="horizontal-form-exp">
-          <TextArea
-            value={textAreaValue}
-            onChange={(value) => setTextAreaValue(value)}
-            className="chr-c-feedback-text-area"
-            name="feedback-description-text"
-            id="feedback-description-text"
-          />
-        </FormGroup>
         <FormGroup className="pf-u-mt-20">
           <Checkbox
             id="feedback-checkbox"
             isChecked={checked}
             onChange={() => setChecked(!checked)}
             label={intl.formatMessage(messages.researchOpportunities)}
-            description={intl.formatMessage(messages.learnAboutResearchOpportunities)}
+            description={intl.formatMessage(messages.weNeverSharePersonalInformation)}
           />
         </FormGroup>
       </Form>
@@ -110,10 +81,10 @@ const Feedback = ({ user, onCloseModal, onSubmit, onClickBack, handleFeedbackErr
       <div className="chr-c-feedback-buttons">
         <Button
           ouiaId="submit-feedback"
+          isDisabled={!checked}
           className="chr-c-feedback-footer-button"
           key="confirm"
           variant="primary"
-          isDisabled={textAreaValue.length > 1 ? false : true}
           onClick={handleModalSubmission}
         >
           {intl.formatMessage(messages.submitFeedback)}
@@ -129,4 +100,12 @@ const Feedback = ({ user, onCloseModal, onSubmit, onClickBack, handleFeedbackErr
   );
 };
 
-export default Feedback;
+InformDirection.propTypes = {
+  user: PropTypes.object,
+  modalPage: PropTypes.string,
+  setModalPage: PropTypes.func,
+  onCloseModal: PropTypes.func,
+  onSubmit: PropTypes.func,
+};
+
+export default InformDirection;
